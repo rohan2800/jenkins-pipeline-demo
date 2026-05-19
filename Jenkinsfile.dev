@@ -1,0 +1,11 @@
+pipeline {
+    agent any
+    stages {
+        stage('Dev Build') {
+            steps {
+                echo "This is the DEV pipeline"
+                echo "Branch: ${env.GIT_BRANCH}"
+            }
+        }
+    }
+}
