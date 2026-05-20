@@ -1,22 +1,15 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPush()
-    }
-
     environment {
         APP_NAME    = "DevOps-Demo-App"
         APP_VERSION = "2.0.0"
-        APP_ENV     = "staging"
-        DEPLOY_DIR  = "/tmp/deployments"
-        REPORT_DIR  = "reports"
+        ENVIRONMENT = "staging"
     }
 
     options {
         timestamps()
         timeout(time: 10, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
@@ -26,11 +19,15 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "📥 STAGE: Checkout"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 echo "App     : ${APP_NAME} v${APP_VERSION}"
-                echo "Branch  : ${env.GIT_BRANCH}"
+                echo "Branch  : ${env.BRANCH_NAME ?: env.GIT_BRANCH}"
                 echo "Commit  : ${env.GIT_COMMIT}"
                 echo "Build   : #${BUILD_NUMBER}"
-                sh 'ls -la'
+
+                sh '''
+                    ls -la
+                '''
             }
         }
 
@@ -39,12 +36,17 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "🔨 STAGE: Build"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
                     chmod +x src/app.sh
-                    chmod +x scripts/*.sh
+                    chmod +x scripts/deploy.sh scripts/quality_check.sh
+
                     bash src/app.sh
-                    mkdir -p ${REPORT_DIR}
-                    echo "Build #${BUILD_NUMBER} - $(date)" > ${REPORT_DIR}/build.log
+
+                    mkdir -p reports
+
+                    echo "Build #${BUILD_NUMBER} - $(date)" > reports/build.log
+
                     echo "✅ Build stage complete"
                 '''
             }
@@ -55,9 +57,11 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "🧪 STAGE: Unit Tests"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
                     chmod +x tests/unit_tests.sh
-                    bash tests/unit_tests.sh | tee ${REPORT_DIR}/test.log
+
+                    bash tests/unit_tests.sh | tee reports/test.log
                 '''
             }
         }
@@ -67,8 +71,9 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "🔍 STAGE: Code Quality"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
-                    bash scripts/quality_check.sh | tee ${REPORT_DIR}/quality.log
+                    bash scripts/quality_check.sh | tee reports/quality.log
                 '''
             }
         }
@@ -78,12 +83,17 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "📦 STAGE: Package"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
-                    PKG_NAME="${APP_NAME}-${APP_VERSION}-build${BUILD_NUMBER}.tar.gz"
+                    PKG_NAME=${APP_NAME}-${APP_VERSION}-build${BUILD_NUMBER}.tar.gz
+
                     tar -czf ${PKG_NAME} src/ config/ scripts/
+
                     echo "✅ Package created: ${PKG_NAME}"
+
                     ls -lh ${PKG_NAME}
-                    echo ${PKG_NAME} > ${REPORT_DIR}/package.log
+
+                    echo "${PKG_NAME}" > reports/package.log
                 '''
             }
         }
@@ -93,8 +103,9 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "🚀 STAGE: Deploy"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
-                    bash scripts/deploy.sh | tee ${REPORT_DIR}/deploy.log
+                    bash scripts/deploy.sh | tee reports/deploy.log
                 '''
             }
         }
@@ -104,14 +115,20 @@ pipeline {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "💨 STAGE: Smoke Test"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
                 sh '''
                     echo "Verifying deployment..."
-                    if [ -L ${DEPLOY_DIR}/current ]; then
+
+                    if [ -L /tmp/deployments/current ]; then
                         echo "✅ Deployment symlink exists"
-                        echo "✅ Pointing to: $(readlink ${DEPLOY_DIR}/current)"
-                        bash ${DEPLOY_DIR}/current/src/app.sh
+
+                        TARGET=$(readlink /tmp/deployments/current)
+
+                        echo "✅ Pointing to: ${TARGET}"
+
+                        bash /tmp/deployments/current/src/app.sh
                     else
-                        echo "❌ Deployment verification failed"
+                        echo "❌ Deployment symlink missing"
                         exit 1
                     fi
                 '''
@@ -120,21 +137,25 @@ pipeline {
     }
 
     post {
+
         success {
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ PIPELINE SUCCEEDED"
-            echo "App     : ${APP_NAME} v${APP_VERSION}"
+            echo "✅ PIPELINE COMPLETED"
             echo "Build   : #${BUILD_NUMBER}"
-            echo "Branch  : ${env.GIT_BRANCH}"
+            echo "Branch  : ${env.BRANCH_NAME ?: env.GIT_BRANCH}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
             sh '''
                 echo "=== Final Reports ==="
+
                 echo "--- Build Log ---"
                 cat reports/build.log
+
                 echo "--- Deploy Log ---"
                 cat reports/deploy.log
             '''
         }
+
         failure {
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "❌ PIPELINE FAILED"
@@ -142,18 +163,23 @@ pipeline {
             echo "Check console output above"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         }
+
         always {
-            sh '''
+            script {
                 echo "=== Pipeline Summary ==="
-                echo "Build    : #${BUILD_NUMBER}"
-                echo "Job      : ${JOB_NAME}"
+                echo "Build    : #${env.BUILD_NUMBER}"
+                echo "Job      : ${env.JOB_NAME}"
+                echo "Branch   : ${env.BRANCH_NAME ?: env.GIT_BRANCH}"
                 echo "Duration : ${currentBuild.durationString}"
-            '''
+            }
         }
+
         cleanup {
             sh '''
                 echo "🧹 Cleaning workspace..."
+
                 rm -f *.tar.gz
+
                 echo "✅ Cleanup done"
             '''
         }
