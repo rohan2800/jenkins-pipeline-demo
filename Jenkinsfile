@@ -97,7 +97,13 @@ pipeline {
                 '''
             }
         }
-
+	
+	stage('Approval') { 
+		steps { 
+			input message: 'Deploy to staging?', ok: 'Yes, Deploy!' 
+		} 
+	}
+ 
         stage('Approval') {
 	    steps {
                 input message: 'Deploy to staging?', ok: 'Yes, Deploy!'
