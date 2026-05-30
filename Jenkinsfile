@@ -98,6 +98,12 @@ pipeline {
             }
         }
 
+        stage('Approval') {
+	    steps {
+                input message: 'Deploy to staging?', ok: 'Yes, Deploy!'
+            }
+        }
+
         stage('Deploy') {
             steps {
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -165,6 +171,7 @@ pipeline {
         }
 
         always {
+<<<<<<< HEAD
             script {
                 echo "=== Pipeline Summary ==="
                 echo "Build    : #${env.BUILD_NUMBER}"
@@ -172,6 +179,12 @@ pipeline {
                 echo "Branch   : ${env.BRANCH_NAME ?: env.GIT_BRANCH}"
                 echo "Duration : ${currentBuild.durationString}"
             }
+=======
+	    echo "=== Pipeline Summary ==="
+	    echo "Build    : #${BUILD_NUMBER}"
+	    echo "Job      : ${JOB_NAME}"
+	    echo "Duration : ${currentBuild.durationString}"
+>>>>>>> 5189741 (hotfix: bump version to 2.0.1)
         }
 
         cleanup {

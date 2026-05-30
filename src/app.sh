@@ -2,7 +2,7 @@
 # Simple Web App Simulator
 
 APP_NAME="DevOps-Demo-App"
-APP_VERSION="2.0.0"
+APP_VERSION="2.0.1"
 APP_ENV="${APP_ENV:-development}"
 BUILD_NUMBER="${BUILD_NUMBER:-local}"
 
