@@ -25,3 +25,4 @@ calculate_health() {
 }
 
 calculate_health
+this is not valid bash }{{{
